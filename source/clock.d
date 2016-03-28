@@ -81,8 +81,9 @@ public:
         import interpolate;
 
         auto imageOrigMeta = Image.fromSurface(imageOrig);
-        auto total = (Clock.currTime() - SysTime(DateTime(2000, 1, 1), null)).total!"msecs" % 12000;
-        double dPhi = total*2*PI/12000.0;
+        auto total = (Clock.currTime() - SysTime(DateTime(2000, 1, 1), null)).total!"msecs";
+        double dPhi = (total%12000)*2*PI/12000.0;
+        double dRotY = (total%7600)*2*PI/7600.0;
 
         enum USE_UV = false;
 
@@ -133,20 +134,18 @@ public:
                 auto line = imageMeta[y];
                 CartesianCoordinate relative;
                 relative.z = (cast(double) y*2)/imageMeta.h - 1;
-                SphericalCoordinate spherical;
-                spherical.rho = 1;
-                spherical.theta = acos(relative.z);
-                CartesianCoordinate renormalize;
-                renormalize.z = -(spherical.theta/PI * 2 -1);
                 foreach (x; 0..imageMeta.w) {
                     line[x].a = 255;
                     relative.x = (cast(double) x*2)/imageMeta.w - 1;
                     relative.fixY();
                     if (!relative.y.isNaN) {
-                        spherical.phi = atan2(relative.y, relative.x);
+                        auto spherical = relative.toSpherical();
                         spherical.phi -= dPhi;
-                        while (spherical.phi < 0) spherical.phi += PI*2;
-                        renormalize.x = -((spherical.phi/(2*PI)) * 2 - 1);
+                        if (spherical.phi < 0) spherical.phi += PI*2;
+                        spherical = spherical.rotY(dRotY);
+                        auto renormalize = spherical.normalize();
+                        renormalize.z *= -1;
+                        renormalize.x *= -1;
                         auto origin = renormalize.toImage(imageOrigMeta.w, imageOrigMeta.h);
                         line[x] = imageOrigMeta[origin.y][origin.x];
                     } else {
@@ -166,7 +165,7 @@ public:
         import std.math;
 
         imageOrig = ImageSurface.createFromPng("earth.png");
-        imageMeta = Image.allocate(1000, 1000);
+        imageMeta = Image.allocate(200, 200);
         this.image = imageMeta.surface();
         createImage();
 
@@ -230,117 +229,6 @@ protected:
 
         return true;
     }
-
-	//Override default signal handler:
-	bool drawCallbackOld(Scoped!Context cr, Widget widget)
-	{
-		if ( m_timeout is null )
-		{
-			//Create a new timeout that will ask the window to be drawn once every second.
-			m_timeout = new Timeout( 1000, &onSecondElapsed, false );
-		}
-
-		// This is where we draw on the window
-
-		GtkAllocation size;
-
-		getAllocation(size);
-
-		// scale to unit square and translate (0, 0) to be (0.5, 0.5), i.e. the
-		// center of the window
-		cr.scale(size.width, size.height);
-		cr.translate(0.5, 0.5);
-		cr.setLineWidth(m_lineWidth);
-
-		cr.save();
-			cr.setSourceRgba(0.3, 0.6, 0.2, 0.9);   // brownish green
-			cr.paint();
-		cr.restore();
-
-		cr.arc(0, 0, m_radius, 0, 2 * PI);
-
-		cr.save();
-			cr.setSourceRgba(0.0, 0.0, 0.0, 0.8);
-			cr.fillPreserve();
-		cr.restore();
-
-		cr.save();
-			cr.setSourceRgba(1.0, 1.0, 1.0, 1.0);
-			cr.setLineWidth( m_lineWidth * 1.7);
-			cr.strokePreserve();
-			cr.clip();
-		cr.restore();
-
-
-		//clock ticks
-
-		for (int i = 0; i < 12; i++)
-		{
-			double inset = 0.07;
-
-			cr.save();
-				cr.setSourceRgba(1.0, 1.0, 1.0, 1.0);
-				cr.setLineWidth( m_lineWidth * 0.25);
-				cr.setLineCap(cairo_line_cap_t.ROUND);
-
-				if (i % 3 != 0)
-				{
-					inset *= 1.2;
-					cr.setLineWidth( m_lineWidth * 0.5 );
-				}
-
-				cr.moveTo(
-					(m_radius - inset) * cos (i * PI / 6),
-					(m_radius - inset) * sin (i * PI / 6));
-				cr.lineTo (
-					m_radius * cos (i * PI / 6),
-					m_radius * sin (i * PI / 6));
-				cr.stroke();
-			cr.restore(); // stack-pen-size
-		}
-
-		SysTime lNow = std.datetime.Clock.currTime();
-
-		// compute the angles of the indicators of our clock
-		double minutes = lNow.minute * PI / 30; 
-		double hours = lNow.hour * PI / 6; 
-		double seconds= lNow.second * PI / 30; 
-		
-		cr.save();
-			cr.setLineCap(cairo_line_cap_t.ROUND);
-
-			// draw the seconds hand
-			cr.save();
-				cr.setLineWidth(m_lineWidth / 3);
-				cr.setSourceRgba(0.7, 0.7, 0.85, 0.8); // blueish gray
-				cr.moveTo(0, 0);
-				cr.lineTo(sin(seconds) * (m_radius * 0.8),
-					-cos(seconds) * (m_radius * 0.8));
-				cr.stroke();
-			cr.restore();
-
-			// draw the minutes hand
-			//cr.setSourceRgba(0.117, 0.337, 0.612, 0.9);   // blue
-			cr.setSourceRgba(0.712, 0.337, 0.117, 0.9);   // red
-			cr.moveTo(0, 0);
-			cr.lineTo(sin(minutes + seconds / 60) * (m_radius * 0.7),
-				-cos(minutes + seconds / 60) * (m_radius * 0.7));
-			cr.stroke();
-
-			// draw the hours hand
-			cr.setSourceRgba(0.337, 0.612, 0.117, 0.9);   // green
-			cr.moveTo(0, 0);
-			cr.lineTo(sin(hours + minutes / 12.0) * (m_radius * 0.4),
-				-cos(hours + minutes / 12.0) * (m_radius * 0.4));
-			cr.stroke();
-		cr.restore();
-
-		// draw a little dot in the middle
-		cr.arc(0, 0, m_lineWidth / 3.0, 0, 2 * PI);
-		cr.fill();
-
-		return true;
-	}
 
 	bool onSecondElapsed()
 	{

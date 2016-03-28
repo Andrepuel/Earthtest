@@ -44,6 +44,16 @@ struct SphericalCoordinate {
         import std.math;
         return SphericalCoordinate(phi*180/PI, theta*180/PI, rho);
     }
+
+    SphericalCoordinate rotX(double theta) const pure {
+        return toCartesian.rotX(theta).toSpherical();
+    }
+    SphericalCoordinate rotY(double theta) const pure {
+        return toCartesian.rotY(theta).toSpherical();
+    }
+    SphericalCoordinate rotZ(double theta) const pure {
+        return toCartesian.rotZ(theta).toSpherical();
+    }
 }
 
 struct CartesianCoordinate {
@@ -57,6 +67,7 @@ struct CartesianCoordinate {
         result.rho = sqrt(x*x + y*y + z*z);
         result.theta = acos(z/result.rho);
         result.phi = atan2(y, x);
+        if (result.phi < 0.0) result.phi += 2*PI;
         return result;
     }
 
@@ -69,6 +80,28 @@ struct CartesianCoordinate {
         result.x = result.x.clamp(0, w-1);
         result.y = result.y.clamp(0, h-1);
         return result;
+    }
+
+    CartesianCoordinate rotX(double theta) const pure {
+        import std.math;
+        double cosT = theta.cos;
+        double sinT = theta.sin;
+
+        return CartesianCoordinate(x, y * cosT + z * sinT, -y * sinT + z * cosT);
+    }
+    CartesianCoordinate rotY(double theta) const pure {
+        import std.math;
+        double cosT = theta.cos;
+        double sinT = theta.sin;
+
+        return CartesianCoordinate(x * cosT + z * sinT, y, -x * sinT + z * cosT);
+    }
+    CartesianCoordinate rotZ(double theta) const pure {
+        import std.math;
+        double cosT = theta.cos;
+        double sinT = theta.sin;
+
+        return CartesianCoordinate(x * cosT + y * sinT, -x * sinT + y * cosT, z);
     }
 
     void fixY(double rho = 1) pure {
@@ -90,5 +123,26 @@ struct ImageCoordinate {
         result.z = (cast(double)y*2)/h - 1;
         result.fixY(rho);
         return result;
+    }
+}
+
+unittest {
+    import std.exception;
+    import std.format;
+    import std.math;
+
+    foreach(theta; 1..31) {
+        foreach(phi; 1..63) {
+            SphericalCoordinate a;
+            a.rho = 1;
+            a.theta = theta/10.0;
+            a.phi = phi/10.0;
+
+            CartesianCoordinate b = a.toCartesian;
+            SphericalCoordinate c = b.toSpherical;
+            enforce(abs(a.rho - c.rho) <= 0.1, format("%s %s %s", a, b, c));
+            enforce(abs(a.theta - c.theta) <= 0.1, format("%s %s %s", a, b, c));
+            enforce(abs(a.phi - c.phi) <= 0.1, format("%s %s %s", a, b, c));
+        }
     }
 }
