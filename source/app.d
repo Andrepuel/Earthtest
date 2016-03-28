@@ -28,7 +28,7 @@ void main(string[] args)
 	
 	MainWindow win = new MainWindow("gtkD Cairo Clock");
 	
-	win.setDefaultSize( 800, 800 );
+	win.setDefaultSize(1600, 800);
 
 	Clock c = new Clock();
 	win.add(c);

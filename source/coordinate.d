@@ -40,6 +40,15 @@ struct SphericalCoordinate {
         return result;
     }
 
+    static SphericalCoordinate fromNormalized(CartesianCoordinate normalized) pure {
+        import std.math;
+        SphericalCoordinate result;
+        result.rho = 1;
+        result.theta = (normalized.z + 1)/2 * PI;
+        result.phi = (normalized.x + 1)/2 * PI * 2;
+        return result;
+    }
+
     SphericalCoordinate toDegree() const pure {
         import std.math;
         return SphericalCoordinate(phi*180/PI, theta*180/PI, rho);
