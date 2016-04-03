@@ -1,21 +1,4 @@
-/**
- * clock.d
- *
- * A gtkD widget that implements a clock face
- *
- * Based on the Gtkmm example by:
- * Jonathon Jongsma
- *
- * and the original GTK+ example by:
- * (c) 2005-2006, Davyd Madeley
- *
- * Authors:
- *   Jonas Kivi (D version)
- *   Jonathon Jongsma (C++ version)
- *   Davyd Madeley (C version)
- */
-
-module clock;
+module image_display;
 
 import std.stdio;
 import std.math;
@@ -29,33 +12,26 @@ import cairo.ImageSurface;
 
 import gtk.Widget;
 import gtk.DrawingArea;
+import std.datetime;
 
-import earth;
-
-class Clock : DrawingArea
+class ImageDisplay : DrawingArea
 {
 public:
 
-	this()
+	this(ImageSurface surface, void delegate(double elapsedSeconds) redraw)
 	{
-        import std.stdio;
-        import std.math;
+        start = Clock.currTime();
+        this.redraw = redraw;
+        this.surface = surface;
+        redraw(0);
 
-        earth = new Earth("earth.png", 200, 200);
-        createImage();
 		//Attach our expose callback, which will draw the window.
 		addOnDraw(&drawCallback);
 	}
 
     void createImage() {
-        import std.datetime;
-
-        auto total = (Clock.currTime() - SysTime(DateTime(2000, 1, 1), null)).total!"msecs";
-        double dPhi = (total%360000)*2*PI/36000.0;
-        double dRotY = (total%10000)*2*PI/10000.0;
-
-        enum GLOBE = false;
-        earth.createImage(dPhi, dRotY, true);
+        auto total = (Clock.currTime() - start).total!"msecs";
+        this.redraw(total/1000.0);
     }
 
 protected:
@@ -81,12 +57,12 @@ protected:
 
         {
 
-            int w = earth.surface.getWidth();
-            int h = earth.surface.getHeight();
+            int w = surface.getWidth();
+            int h = surface.getHeight();
 
             cr.translate(-1., -1.);
             cr.scale (2.0/w, 2.0/h);
-            cr.setSourceSurface (earth.surface, 0, 0);
+            cr.setSourceSurface(surface, 0, 0);
             cr.paint();
         }
 
@@ -104,9 +80,8 @@ protected:
 		return true;
 	}
 
-	double m_radius = 0.40;
-	double m_lineWidth = 0.065;
-
 	Timeout m_timeout;
-    Earth earth;
+    ImageSurface surface;
+    SysTime start;
+    void delegate(double) redraw;
 }

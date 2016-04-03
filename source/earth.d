@@ -1,10 +1,21 @@
 import cairo.ImageSurface;
+import std.stdio : File;
+
+struct Rgb24 {
+    ubyte r;
+    ubyte g;
+    ubyte b;
+}
 
 struct Argb32 {
     ubyte b;
     ubyte g;
     ubyte r;
     ubyte a;
+
+    Rgb24 rgb() const pure {
+        return Rgb24(r, g, b);
+    }
 };
 
 struct Image {
@@ -38,6 +49,18 @@ struct Image {
         result.data = surface.getData()[0..ImageSurface.formatStrideForWidth(cairo_format_t.ARGB32, surface.getWidth()) * surface.getHeight()];
         return result;
     }
+
+    void rawWrite(ref File output) {
+        Rgb24[] buf;
+        buf.length = w;
+        foreach(y; 0..h) {
+            auto line = this[y];
+            foreach(x; 0..w) {
+                buf[x] = line[x].rgb();
+            }
+            output.rawWrite(buf);
+        }
+    }
 };
 
 class Earth {
@@ -53,14 +76,17 @@ class Earth {
             image = imageMeta.surface();
         }
 
-        void createImage(double dRotZ, double dRotY, bool globe) {
+        void createImage(double dRotZ, double dRotY, bool globe, int step = 0, int stepN = 1) {
             import std.math;
             import coordinate;
             import interpolate;
 
             auto imageOrigMeta = Image.fromSurface(imageOrig);
 
-            foreach (y; 0..imageMeta.h) {
+            int y0 = (step * imageMeta.h)/stepN;
+            int y1 = ((step + 1) * imageMeta.h)/stepN;
+
+            foreach (y; y0..y1) {
                 auto line = imageMeta[y];
                 CartesianCoordinate relative;
                 relative.z = (cast(double) y*2)/imageMeta.h - 1;
@@ -68,9 +94,17 @@ class Earth {
                     line[x].a = 255;
                     relative.x = (cast(double) x*2)/imageMeta.w - 1;
                     if (globe) {
+                        bool second = relative.x > 0;
+                        if (second) {
+                            relative.x -= 0.5;
+                        } else {
+                            relative.x += 0.5;
+                        }
+                        relative.x *= 2;
                         relative.fixY();
                         if (!relative.y.isNaN) {
                             auto spherical = relative.toSpherical();
+                            if (second) spherical.phi += PI;
                             spherical.phi -= dRotZ;
                             while (spherical.phi < 0) spherical.phi += PI*2;
                             spherical = spherical.rotX(dRotY);
