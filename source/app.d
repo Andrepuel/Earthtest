@@ -38,7 +38,7 @@ void redraw(Earth earth, double seconds, int worker, int numThreads) {
 
     double rotZ = seconds * 2 * PI / 360;
     double rotX = seconds * 2 * PI / 10;
-    earth.createImage(rotZ, rotX, true, worker, numThreads);
+    earth.createImage(rotZ, rotX, false, worker, numThreads);
 }
 
 void main(string[] args)
@@ -50,7 +50,7 @@ void main(string[] args)
         
         win.setDefaultSize(1400, 700);
 
-        Earth earth = new Earth("earth.png", 200, 200/2);
+        Earth earth = new Earth("earth.png", 1400, 1400/2);
         auto c = new ImageDisplay(earth.surface(), (secs) { redraw(earth, secs, 0, 1); });
         win.add(c);
         c.show();
@@ -62,13 +62,15 @@ void main(string[] args)
         import std.format;
         import std.stdio;
         import core.sync.barrier;
+        import std.process;
+        import std.format;
 
         enum fps = 24;
         enum duration = 360;
         enum output = "out/project_%05d.png";
 
         int numThreads = 5;
-        auto barrier = new Barrier(numThreads + 1);
+        auto barrier = new Barrier(numThreads);
         Earth earth = new Earth("earth.png", 1920, 1920/2);
         auto worker = (int worker) {
             foreach(i; 0..duration*fps) {
@@ -79,14 +81,23 @@ void main(string[] args)
             }
         };
 
-        foreach(i; 0..numThreads) {
+        foreach(i; 1..numThreads) {
             callThread(worker, i);
         }
 
+        auto pipe = pipe();
+        auto ffmpeg = spawnProcess(["/usr/bin/env", "ffmpeg", "-f", "rawvideo", "-pixel_format", "rgb24", "-video_size", "%sx%s".format(1920, 1920/2), "-framerate", "%s".format(fps), "-i", "-", "output.mp4"], pipe.readEnd);
+        scope(exit) wait(ffmpeg);
+
         foreach(i; 0..duration*fps) {
+            double seconds = (cast(double)i)/fps;
+            redraw(earth, seconds, 0, numThreads);
             barrier.wait();
-            Image.fromSurface(earth.surface).rawWrite(stdout);
+            File write = pipe.writeEnd;
+            Image.fromSurface(earth.surface).rawWrite(write);
             barrier.wait();
         }
+
+        pipe.writeEnd.close();
     }
 }

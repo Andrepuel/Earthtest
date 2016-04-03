@@ -135,6 +135,8 @@ struct ImageCoordinate {
     }
 }
 
+enum string clside = import("coordinate.c");
+
 unittest {
     import std.exception;
     import std.format;

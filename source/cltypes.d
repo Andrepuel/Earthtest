@@ -127,7 +127,7 @@ struct CommandQueue {
         clReleaseCommandQueue(queue);
     }
 
-    void enqueueNDRange(ref Kernel kernel, cl_device_id device, size_t[] global, size_t[] local) {
+    void enqueueNDRange(ref Kernel kernel, size_t[] global, size_t[] local) {
         import std.math;
 
         assert(global.length <= 3);
@@ -139,6 +139,11 @@ struct CommandQueue {
 
     void enqueueReadBuffer(ref Mem buffer, size_t offset, size_t size, void* dest) {
         cl_error = clEnqueueReadBuffer(queue, buffer.buffer, CL_FALSE, offset, size, dest, 0, null, null);
+        checkError();
+    }
+
+    void enqueueWriteBuffer(ref Mem buffer, size_t offset, size_t size, void* dest) {
+        cl_error = clEnqueueWriteBuffer(queue, buffer.buffer, CL_FALSE, offset, size, dest, 0, null, null);
         checkError();
     }
 
@@ -162,12 +167,12 @@ struct Program {
         {
             auto cl_error_prev = cl_error; scope(exit) cl_error = cl_error_prev;
             char[] buffer;
-            buffer.length = 4096;
+            buffer.length = 256*1024;
             size_t lengthOut;
             cl_error = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, buffer.length, buffer.ptr, &lengthOut);
             checkError();
             if (lengthOut > 0) {
-                writeln(assumeUnique(buffer)[0..lengthOut]);
+                stderr.writeln(assumeUnique(buffer)[0..lengthOut]);
             }
         }
         checkError();
