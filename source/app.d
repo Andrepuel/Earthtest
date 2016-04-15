@@ -21,6 +21,8 @@ import image_display;
 
 import gtk.MainWindow;
 import gtk.Main;
+import gtk.Widget;
+import gdk.Event;
 
 import earth;
 
@@ -38,20 +40,72 @@ void redraw(Earth earth, double seconds, int worker, int numThreads) {
 
     double rotZ = seconds * 2 * PI / 360;
     double rotX = seconds * 2 * PI / 10;
-    earth.createImage(rotZ, rotX, false, worker, numThreads);
+    earth.createImage(rotZ, 0, rotX, false, worker, numThreads);
 }
 
 void main(string[] args)
 {
     if (1) {
+        import std.stdio;
+        import std.math : PI;
+
         Main.init(args);
         
         MainWindow win = new MainWindow("gtkD Cairo Clock");
         
         win.setDefaultSize(1400, 700);
 
+        int lastX = -1;
+        int lastY = -1;
+        int rotZ = 0;
+        int rotY = 0;
+        int rotX = 0;
+        bool globe = false;
+
         Earth earth = new Earth("earth.png", 1400, 1400/2);
-        auto c = new ImageDisplay(earth.surface(), (secs) { redraw(earth, secs, 0, 1); });
+
+        auto draw = () { earth.createImage((cast(double)rotZ)/180 * PI, (cast(double)rotY)/180 * PI, (cast(double)rotX)/180 * PI, globe); };
+
+        auto c = new ImageDisplay(earth.surface(), (secs) {});
+        c.addOnButtonRelease(
+            (GdkEventButton* event, Widget widget) {
+                if ((event.state & GdkModifierType.BUTTON3_MASK) > 0 ) {
+                    globe = !globe;
+                }
+                draw();
+                return false;
+            }
+        );
+        c.addOnScroll(
+            (GdkEventScroll* event, Widget widget) {
+                int deltaY = cast(int) (event.deltaY * 6);
+                if (event.direction == GdkScrollDirection.UP) deltaY *= -1;
+                rotY += deltaY;
+                draw();
+                return false;
+            }
+        );
+        c.addOnMotionNotify(
+            (GdkEventMotion* event, Widget widget) {
+                if (lastX >= 0 && (event.state & GdkModifierType.BUTTON1_MASK) > 0) {
+                    int dx = (cast(int) event.x) - lastX;
+                    int dy = (cast(int) event.y) - lastY;
+                    rotZ += dx;
+                    rotX += dy;
+                    while (rotZ < 0) rotZ += 360;
+                    rotZ = rotZ % 360;
+                    while (rotX < 0) rotX += 360;
+                    rotX = rotX % 360;
+                    draw();
+                }
+                lastX = cast(int) event.x;
+                lastY = cast(int) event.y;
+
+                return false;
+            }
+        );
+        draw();
+        c.addEvents(EventMask.BUTTON_PRESS_MASK);
         win.add(c);
         c.show();
         win.showAll();

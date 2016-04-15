@@ -108,7 +108,7 @@ class Earth {
             queue.enqueueWriteBuffer(input, 0, inputSize, imageOrig.getData());
         }
 
-        void createImage(double dRotZ, double dRotX, bool globe, int step = 0, int stepN = 1) {
+        void createImage(double dRotZ, double dRotY, double dRotX, bool globe, int step = 0, int stepN = 1) {
             static if (1) {
                 if (step != 0) return;
                 Kernel kernel = Kernel(program, "createImage");
@@ -118,7 +118,7 @@ class Earth {
                 kernel.setArg(3, ImageMetaCl(imageMeta.w, imageMeta.h, imageMeta.stride));
                 kernel.setArg!int(4, globe);
                 kernel.setArg!float(5, dRotX);
-                kernel.setArg!float(6, 0);
+                kernel.setArg!float(6, dRotY);
                 kernel.setArg!float(7, dRotZ);
                 queue.enqueueNDRange(kernel, [imageMeta.w, imageMeta.h], null);
                 size_t outputSize = imageMeta.h * imageMeta.stride;
