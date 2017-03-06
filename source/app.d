@@ -53,7 +53,9 @@ void main(string[] args)
         
         MainWindow win = new MainWindow("gtkD Cairo Clock");
         
-        win.setDefaultSize(1400, 700);
+        enum baseSize = 1400;
+        // enum baseSize = 4000;
+        win.setDefaultSize(baseSize, baseSize/2);
 
         int lastX = -1;
         int lastY = -1;
@@ -62,7 +64,7 @@ void main(string[] args)
         int rotX = 0;
         bool globe = false;
 
-        Earth earth = new Earth("earth.png", 1400, 1400/2);
+        Earth earth = new Earth("earth.png", baseSize, baseSize/2);
 
         auto draw = () { earth.createImage((cast(double)rotZ)/180 * PI, (cast(double)rotY)/180 * PI, (cast(double)rotX)/180 * PI, globe); };
 
